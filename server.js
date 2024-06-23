@@ -1,58 +1,59 @@
 const express = require('express');
+const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/registration', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
+mongoose.connect('mongodb://localhost:27017/blogDB', { useNewUrlParser: true, useUnifiedTopology: true });
+
+// Define schema and model for posts
+const postSchema = new mongoose.Schema({
+    title: String,
+    content: String
 });
+const Post = mongoose.model('Post', postSchema);
 
-// Create schema and model for User
-const userSchema = new mongoose.Schema({
-    username: String,
-    email: String,
-    password: String
-});
+// Set EJS as view engine
+app.set('view engine', 'ejs');
 
-const User = mongoose.model('User', userSchema);
+// Middleware
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static('public')); // For static files (CSS, images)
 
-// Middleware to parse JSON and urlencoded form data
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Serve static files (CSS, images, etc.)
-app.use(express.static('public'));
-
-// Route for serving the registration form
+// Routes
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
-});
-
-// Route to handle form submissions
-app.post('/register', (req, res) => {
-    const { username, email, password } = req.body;
-    
-    // Create a new user using the User model
-    const newUser = new User({
-        username,
-        email,
-        password
-    });
-
-    // Save the user to the database
-    newUser.save()
-        .then(() => {
-            res.send('<script>alert("Registration successful!"); window.location.href = "/";</script>');
-            // Alternatively, you can redirect using res.redirect('/')
+    Post.find({})
+        .then(posts => {
+            res.render('home', { posts: posts });
         })
         .catch(err => {
-            res.status(500).send('Failed to register user');
+            console.log(err);
+            res.status(500).send('Error fetching posts');
         });
 });
 
-// Start the server
-const PORT = process.env.PORT || 3000;
+app.get('/compose', (req, res) => {
+    res.render('compose');
+});
+
+app.post('/compose', (req, res) => {
+    const newPost = new Post({
+        title: req.body.postTitle,
+        content: req.body.postBody
+    });
+    newPost.save()
+        .then(() => {
+            res.redirect('/');
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(500).send('Error saving post');
+        });
+});
+
+// Start server
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server started on port ${PORT}`);
 });
